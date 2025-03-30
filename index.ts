@@ -10,8 +10,8 @@ import puppeteer, {
 import readline from "readline";
 import { setTimeout } from "timers/promises";
 import screenshotOptions, { ScreenshotOptions } from "./config"; // Import the configuration options
-// --- Interfaces remain the same ---
 
+// --- Interfaces remain the same ---
 interface ScreenshotResult {
   url: string;
   status: "success" | "failed";
@@ -115,18 +115,15 @@ function getFormattedTimestamp(): string {
 
 /**
  * Helper function to sanitize a URL path segment for use in filenames.
- * Replaces slashes with hyphens and removes invalid characters.
  */
 function sanitizePathForFilename(pathname: string): string {
   if (!pathname || pathname === "/") {
-    return "root"; // Use 'root' for the base path
+    return "root";
   }
-  // Remove leading/trailing slashes, replace internal slashes with '-', remove invalid chars
   const cleanedPath = pathname
-    .replace(/^\/+|\/+$/g, "") // Remove leading/trailing slashes
-    .replace(/\//g, "-") // Replace internal slashes with hyphens
-    .replace(/[^a-zA-Z0-9_\-]/g, "_"); // Replace non-alphanumeric (excluding _,-) with underscore
-  // Prevent overly long filenames (optional, adjust length as needed)
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\//g, "-")
+    .replace(/[^a-zA-Z0-9_\-]/g, "_");
   const maxLength = 100;
   return cleanedPath.length > maxLength
     ? cleanedPath.substring(0, maxLength)
@@ -135,7 +132,7 @@ function sanitizePathForFilename(pathname: string): string {
 
 /**
  * Takes screenshots or PDFs of multiple websites based on provided options.
- * Saves files into domain-specific subdirectories with meaningful names.
+ * Saves files into {baseDir}/{domain}/{run_timestamp}/{path}.ext structure.
  * @param urls - Array of URLs to process.
  * @param options - Configuration options for screenshots.
  * @returns A promise resolving to a summary object with success/failure counts and detailed results.
@@ -144,7 +141,8 @@ async function takeScreenshots(
   urls: string[],
   options: ScreenshotOptions = {}
 ): Promise<ScreenshotSummary> {
-  // --- Default configuration merge remains the same ---
+  // --- Merge options with defaults ---
+  const finalOptions = { ...screenshotOptions, ...options };
   const config: Required<
     Omit<
       ScreenshotOptions,
@@ -155,30 +153,36 @@ async function takeScreenshots(
       ScreenshotOptions,
       "quality" | "authUrls" | "cookies" | "userAgent" | "headless"
     > = {
-    outputDir: "./screenshots",
-    fileFormat: "png",
-    quality: 80,
-    width: 1920,
-    height: 1080,
-    deviceScaleFactor: 1,
-    delay: 1000,
-    scrollPage: options.scrollPage !== undefined ? options.scrollPage : true,
-    scrollDelay: options.scrollDelay ?? 300,
-    timeout: 60000,
-    waitUntil: "networkidle0",
-    authUrls: options.authUrls ?? {},
-    cookies: options.cookies ?? {},
-    headless: options.headless ?? "new",
-    userAgent: options.userAgent ?? DEFAULT_USER_AGENT,
-    fullPage: options.fullPage !== undefined ? options.fullPage : true,
+    outputDir: finalOptions.outputDir ?? "./screenshots",
+    fileFormat: finalOptions.fileFormat ?? "png",
+    quality: finalOptions.quality ?? 80,
+    width: finalOptions.width ?? 1920,
+    height: finalOptions.height ?? 1080,
+    deviceScaleFactor: finalOptions.deviceScaleFactor ?? 1,
+    delay: finalOptions.delay ?? 1000,
+    scrollPage:
+      finalOptions.scrollPage !== undefined ? finalOptions.scrollPage : true,
+    scrollDelay: finalOptions.scrollDelay ?? 300,
+    timeout: finalOptions.timeout ?? 60000,
+    waitUntil: finalOptions.waitUntil ?? "networkidle0",
+    authUrls: finalOptions.authUrls ?? {},
+    cookies: finalOptions.cookies ?? {},
+    headless: finalOptions.headless ?? "new",
+    userAgent: finalOptions.userAgent ?? DEFAULT_USER_AGENT,
+    fullPage:
+      finalOptions.fullPage !== undefined ? finalOptions.fullPage : true,
   };
 
-  // --- Validation and initial outputDir creation remain the same ---
+  // --- Validation ---
   if (!["png", "jpeg", "pdf"].includes(config.fileFormat)) {
-    throw new Error(
-      `Invalid fileFormat: "${config.fileFormat}". Must be 'png', 'jpeg', or 'pdf'.`
-    );
+    throw new Error(`Invalid fileFormat: "${config.fileFormat}".`);
   }
+
+  // *** Generate Timestamp for the ENTIRE RUN ***
+  const runTimestamp = getFormattedTimestamp(); // Single timestamp for the whole execution
+
+  // --- Base directory check (optional, as recursive mkdir handles it) ---
+  // It's good practice to ensure the very base exists or log it.
   try {
     if (!fs.existsSync(config.outputDir)) {
       fs.mkdirSync(config.outputDir, { recursive: true });
@@ -187,13 +191,15 @@ async function takeScreenshots(
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `Failed to create base output directory "${config.outputDir}": ${errorMessage}`
+      `Failed to ensure base output directory "${config.outputDir}": ${errorMessage}`
     );
+    // Decide if this is fatal. If base can't be created, likely nothing will work.
     throw error;
   }
 
   console.log(`Starting screenshot process for ${urls.length} URLs...`);
-  console.log(`Configuration:`, {
+  console.log(`Run Timestamp: ${runTimestamp}`);
+  console.log(`Using effective configuration:`, {
     ...config,
     authUrls:
       config.authUrls && Object.keys(config.authUrls).length > 0
@@ -211,9 +217,12 @@ async function takeScreenshots(
   let errorCount = 0;
 
   try {
-    // --- Browser launch remains the same ---
+    // --- Browser launch ---
     const launchOptions: LaunchOptions = {
-      headless: config.headless === "new" ? true : config.headless,
+      headless:
+        config.headless === "new"
+          ? "new"
+          : (config.headless as boolean | "shell" | undefined),
       defaultViewport: {
         width: config.width,
         height: config.height,
@@ -228,7 +237,7 @@ async function takeScreenshots(
     browser = await puppeteer.launch(launchOptions);
     console.log(`Browser launched successfully (Headless: ${config.headless})`);
 
-    // --- Auto-scroll function remains the same ---
+    // --- Auto-scroll function ---
     const autoScroll = async (page: Page): Promise<void> => {
       await page.evaluate(async (scrollDelay) => {
         await new Promise<void>((resolve) => {
@@ -244,8 +253,9 @@ async function takeScreenshots(
             scrolls++;
             const atBottom =
               window.pageYOffset + window.innerHeight >= scrollHeight;
+            const scrollPositionAfterScroll = window.pageYOffset;
             const scrollPositionNotChanging =
-              currentScroll === window.pageYOffset;
+              currentScroll === scrollPositionAfterScroll;
             if (
               (scrollPositionNotChanging && currentScroll > 0) ||
               atBottom ||
@@ -272,7 +282,7 @@ async function takeScreenshots(
           height: config.height,
           deviceScaleFactor: config.deviceScaleFactor,
         });
-        await page.setUserAgent(config.userAgent || DEFAULT_USER_AGENT);
+        await page.setUserAgent(config.userAgent);
 
         let urlObj: URL;
         let hostname: string;
@@ -280,13 +290,14 @@ async function takeScreenshots(
         try {
           urlObj = new URL(url);
           hostname = urlObj.hostname;
-          pathname = urlObj.pathname; // Extract the path
+          pathname = urlObj.pathname;
         } catch (urlError) {
           throw new Error(`Invalid URL format: ${url}`);
         }
         const safeHostname = hostname.replace(/[^a-z0-9_\-\.]/gi, "_");
+        const sanitizedPathPart = sanitizePathForFilename(pathname);
 
-        // --- Authentication and Cookies remain the same ---
+        // --- Authentication and Cookies ---
         const auth = config.authUrls?.[hostname];
         if (auth) {
           await page.authenticate(auth);
@@ -296,7 +307,7 @@ async function takeScreenshots(
           await page.setCookie(...pageCookies);
         }
 
-        // --- Navigation remains the same ---
+        // --- Navigation ---
         console.log(`${progress} Navigating...`);
         await page.goto(url, {
           waitUntil: config.waitUntil,
@@ -304,7 +315,7 @@ async function takeScreenshots(
         });
         console.log(`${progress} Navigation complete.`);
 
-        // --- Initial Delay remains the same ---
+        // --- Initial Delay ---
         if (config.delay > 0) {
           console.log(
             `${progress} Waiting for initial delay: ${config.delay}ms...`
@@ -312,48 +323,56 @@ async function takeScreenshots(
           await setTimeout(config.delay);
         }
 
-        // --- Scrolling Logic remains the same ---
+        // --- Scrolling Logic ---
         if (config.scrollPage) {
           console.log(`${progress} Scrolling page...`);
           await autoScroll(page);
           console.log(`${progress} Scrolling complete. Waiting...`);
           await page.evaluate(() => window.scrollTo(0, 0));
-          await setTimeout(2000);
+          await setTimeout(500);
         } else {
           console.log(`${progress} Skipping page scroll.`);
         }
 
-        // *** MODIFIED: Directory and Meaningful Filename Generation ***
-        const domainOutputDir = path.join(config.outputDir, safeHostname);
+        // *** MODIFIED: Directory Structure {domain}/{run_timestamp} ***
+
+        // Define the target directory for this specific file
+        // Structure: {baseOutputDir}/{domain}/{runTimestamp}
+        const targetDir = path.join(
+          config.outputDir,
+          safeHostname,
+          runTimestamp
+        ); // <-- The key change is here
+
+        // Ensure the full nested directory exists for this domain and run
         try {
-          if (!fs.existsSync(domainOutputDir)) {
-            fs.mkdirSync(domainOutputDir, { recursive: true });
-            console.log(`${progress} Created subdirectory: ${domainOutputDir}`);
-          }
+          // No need to check separately, recursive handles creating intermediate dirs
+          fs.mkdirSync(targetDir, { recursive: true });
+          // Log creation only if it potentially happened (less verbose)
+          // console.log(`${progress} Ensured subdirectory exists: ${targetDir}`);
         } catch (mkdirError: unknown) {
           const errorMessage =
             mkdirError instanceof Error
               ? mkdirError.message
               : String(mkdirError);
           console.error(
-            `✗ ${progress} Failed to create subdirectory "${domainOutputDir}": ${errorMessage}`
+            `✗ ${progress} Failed to create subdirectory "${targetDir}": ${errorMessage}`
           );
+          // Decide how to handle: skip this URL or fail the run? Skipping for now.
           throw new Error(
-            `Failed to create subdirectory "${domainOutputDir}": ${errorMessage}`
+            `Failed to create subdirectory "${targetDir}": ${errorMessage}`
           );
         }
 
-        // Generate meaningful filename components
-        const sanitizedPathPart = sanitizePathForFilename(pathname);
-        const timestampPart = getFormattedTimestamp();
+        // Define the final filename using the sanitized path part
+        const filenameOnly = sanitizedPathPart;
 
-        // Combine components for the final filename (without extension)
-        const filenameOnly = `${sanitizedPathPart}_${timestampPart}`;
-        const baseFilePath = path.join(domainOutputDir, filenameOnly); // Path within the domain folder
+        // Define the full path to the file (within the domain/timestamp directory)
+        const baseFilePath = path.join(targetDir, filenameOnly); // <-- Use the calculated targetDir
 
         let outputFilePath: string;
 
-        // --- Screenshot / PDF Generation (using the new meaningful path) ---
+        // --- Screenshot / PDF Generation ---
         if (config.fileFormat === "pdf") {
           outputFilePath = `${baseFilePath}.pdf`;
           console.log(`${progress} Generating PDF: ${outputFilePath}`);
@@ -385,51 +404,52 @@ async function takeScreenshots(
         results.push({ url, status: "success", file: outputFilePath });
         successCount++;
       } catch (error: unknown) {
-        // --- Error Handling within loop remains the same ---
+        // --- Error Handling within loop ---
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         console.error(`✗ ${progress} Error processing ${url}: ${errorMessage}`);
         results.push({ url, status: "failed", error: errorMessage });
         errorCount++;
       } finally {
-        // --- Page Closing remains the same ---
+        // --- Page Closing ---
         if (page) {
-          console.log(`${progress} Closing page.`);
           await page.close();
         }
       }
     } // --- End of URL loop ---
   } catch (error: unknown) {
-    // --- Outer Error Handling remains the same ---
+    // --- Outer Error Handling ---
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`A critical error occurred: ${errorMessage}`);
-    errorCount = urls.length - successCount;
+    errorCount = urls.length - results.length;
     results.push(
-      ...urls.slice(successCount + errorCount).map((url) => ({
-        url,
-        status: "failed" as const,
-        error: `Browser-level error: ${errorMessage}`,
-      }))
+      ...urls
+        .slice(results.length)
+        .map((url) => ({
+          url,
+          status: "failed" as const,
+          error: `Browser-level error: ${errorMessage}`,
+        }))
     );
   } finally {
-    // --- Browser Closing remains the same ---
+    // --- Browser Closing ---
     if (browser) {
-      console.log("Closing browser...");
       await browser.close();
       console.log("Browser closed.");
     }
   }
 
-  // --- Summary and Logging remain the same ---
+  // --- Summary and Logging ---
   const summary: ScreenshotSummary = {
     success: successCount,
     failed: errorCount,
     results,
   };
+  // Log file in the base output directory, named with the run timestamp
   const resultsLogFile = path.join(
     config.outputDir,
-    `screenshot_log_${getFormattedTimestamp()}.json`
-  ); // Use formatted timestamp for log
+    `_log_${runTimestamp}.json`
+  );
   try {
     fs.writeFileSync(resultsLogFile, JSON.stringify(summary, null, 2));
     console.log(
@@ -447,7 +467,7 @@ async function takeScreenshots(
   return summary;
 }
 
-// --- processUrlFile function remains the same ---
+// --- processUrlFile function ---
 async function processUrlFile(
   urlFilePath: string,
   options: ScreenshotOptions = {}
@@ -467,11 +487,10 @@ async function processUrlFile(
   }
 }
 
-// --- Example Usage ---
+// --- Main Execution ---
 const urlListFile = "./website_list.txt";
 
-// Run the process
-processUrlFile(urlListFile, screenshotOptions)
+processUrlFile(urlListFile)
   .then((summary) => {
     if (summary) {
       console.log("\n--- Final Summary ---");

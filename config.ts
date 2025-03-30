@@ -21,7 +21,7 @@ export interface ScreenshotOptions {
 }
 
 const screenshotOptions: ScreenshotOptions = {
-  outputDir: "./screenshots_by_domain", // Example: Changed base dir name
+  outputDir: "./screenshots", // Example: Changed base dir name
   fileFormat: "png",
   width: 1920,
   height: 1080,
