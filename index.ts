@@ -318,7 +318,7 @@ async function takeScreenshots(
           await autoScroll(page);
           console.log(`${progress} Scrolling complete. Waiting...`);
           await page.evaluate(() => window.scrollTo(0, 0));
-          await setTimeout(500);
+          await setTimeout(2000);
         } else {
           console.log(`${progress} Skipping page scroll.`);
         }
