@@ -1,15 +1,63 @@
 {
   "name": "bulk-screenshots",
-  "module": "index.ts",
-  "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
+  "version": "1.0.0",
+  "description": "Bulk Screenshot Utility with GUI",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "tsc && electron .",
+    "tsc:watch": "tsc -w",
+    "electron:dev": "electron . --dev",
+    "hot": "npm-run-all --parallel tsc:watch electron:dev",
+    "build": "tsc && electron-builder",
+    "build:win": "tsc && electron-builder --win",
+    "build:mac": "tsc && electron-builder --mac",
+    "build:linux": "tsc && electron-builder --linux",
+    "generate-icons": "electron-icon-builder --input=./app-icon.png --output=./icons"
   },
-  "peerDependencies": {
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.13.14",
+    "concurrently": "^9.1.2",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.0",
+    "electron-reload": "^2.0.0-alpha.1",
+    "npm-run-all": "^4.1.5",
     "typescript": "^5.8.2"
   },
   "dependencies": {
-    "@types/node": "^22.13.14",
+    "electron-icon-builder": "^2.0.1",
     "puppeteer": "^24.4.0"
+  },
+  "build": {
+    "appId": "com.yourname.bulkscreenshots",
+    "productName": "Bulk Screenshots",
+    "directories": {
+      "output": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "index.html",
+      "renderer.js",
+      "styles.css",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "app-icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "app-icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "app-icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

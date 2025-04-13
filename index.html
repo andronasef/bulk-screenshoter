@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bulk Screenshot Utility</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="app-icon.png" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Bulk Screenshot Utility</h1>
+
+      <div class="tabs">
+        <button class="tab-button active" id="tabManual">Enter URLs</button>
+        <button class="tab-button" id="tabFile">Load from File</button>
+      </div>
+
+      <div id="urlManualInput" class="tab-content active">
+        <div class="form-group">
+          <label for="urlTextarea">Enter URLs (one per line):</label>
+          <textarea
+            id="urlTextarea"
+            placeholder="https://example.com&#10;https://anothersite.com&#10;https://thirdsite.com/page"
+            rows="7"
+          ></textarea>
+        </div>
+      </div>
+
+      <div id="urlFileInput" class="tab-content">
+        <div class="form-group">
+          <label for="urlFile">URL List File:</label>
+          <div class="input-with-button">
+            <input
+              type="text"
+              id="urlFile"
+              placeholder="Select a text file with URLs..."
+            />
+            <button id="selectUrlFile">Browse</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="outputDir">Output Directory:</label>
+        <div class="input-with-button">
+          <input
+            type="text"
+            id="outputDir"
+            placeholder="Select output directory (or leave empty for default)..."
+          />
+          <button id="selectOutputDirBtn">Browse</button>
+        </div>
+      </div>
+
+      <div class="options-section">
+        <h2>Screenshot Options</h2>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="fileFormat">File Format:</label>
+            <select id="fileFormat">
+              <option value="png">PNG</option>
+              <option value="jpeg">JPEG</option>
+              <option value="pdf">PDF</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="qualityGroup">
+            <label for="quality">Quality (JPEG only):</label>
+            <input type="number" id="quality" min="1" max="100" value="80" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="width">Viewport Width:</label>
+            <input type="number" id="width" min="100" value="1920" />
+          </div>
+
+          <div class="form-group">
+            <label for="height">Viewport Height:</label>
+            <input type="number" id="height" min="100" value="1080" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="delay">Delay after load (ms):</label>
+            <input type="number" id="delay" min="0" value="2000" />
+          </div>
+
+          <div class="form-group">
+            <label for="timeout">Navigation Timeout (ms):</label>
+            <input type="number" id="timeout" min="1000" value="60000" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group checkbox-group">
+            <label>
+              <input type="checkbox" id="fullPage" checked />
+              Full Page Screenshot
+            </label>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <label>
+              <input type="checkbox" id="scrollPage" checked />
+              Scroll Through Page
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button id="startButton" class="primary-button">
+          Start Screenshot Process
+        </button>
+      </div>
+
+      <div class="progress-section">
+        <div class="progress-bar-container">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <div id="progressText">Ready to start...</div>
+      </div>
+
+      <div class="log-section">
+        <h3>Log</h3>
+        <div id="logOutput" class="log-output"></div>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

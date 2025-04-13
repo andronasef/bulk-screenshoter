@@ -1,16 +1,16 @@
 // tsconfig.json
 {
   "compilerOptions": {
-    "target": "ES2020", // Or newer
-    "module": "NodeNext", // Modern Node module system
-    "moduleResolution": "NodeNext",
-    "outDir": "./dist", // Output directory for compiled JS
-    "rootDir": "./src", // Source directory for TS files
-    "strict": true, // Enable all strict type-checking options
-    "esModuleInterop": true, // Allows default imports from commonjs modules
-    "skipLibCheck": true, // Skip type checking of declaration files
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*"], // Which files to include
-  "exclude": ["node_modules"] // Which files to exclude
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
 }
